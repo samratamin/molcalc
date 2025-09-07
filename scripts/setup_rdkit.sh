@@ -2,8 +2,7 @@
 
 set -e
 
-VERSION="0.5.1"
-URL="https://cdn.jsdelivr.net/npm/rdkit@${VERSION}/dist"
+URL="https://unpkg.com/@rdkit/rdkit/dist"
 DIR="molcalc/static/rdkit"
 
 mkdir -p ${DIR}

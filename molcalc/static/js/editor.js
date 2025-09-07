@@ -438,13 +438,13 @@ $searchFrm.submit(function(event) {
         var sdfstr = await smilesToSdf(data);
         setCurrentSDF(sdfstr);
 
+        promptWait.cancel();
         onWindowResize();
 
         // reset search on success
         $searchInp.focus();
         // $searchInp.val(""); // Casper didn't like this behavior
         changeInputStatus($searchInp, 'success');
-        promptWait.cancel();
 
     }, function(status)
     {
