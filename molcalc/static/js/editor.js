@@ -369,7 +369,7 @@ var $searchBarBtn = $(".mc-mobile-search a");
 function changeInputStatus(input, stats) {
 
     input.removeClass();
-    input.addClass(stats);
+    // input.addClass(stats); // This line is commented out to avoid a bug in JSmol that overrides jQuery's addClass method.
 
     if(stats == "loading") {
         input.prop('disabled', true);
