@@ -12,5 +12,9 @@ wget -c ${URL}
 unzip ChemDoodleWeb-*.zip
 cp -r ChemDoodleWeb-${VERSION}/install/* .
 cp -r ChemDoodleWeb-${VERSION}/src/* .
+
+# Comment out the line that calls checkForUpdates
+sed -i "/iChemLabs.checkForUpdates/c\//iChemLabs.checkForUpdates" ChemDoodleWeb-unpacked.js
+
 rm ChemDoodleWeb-*.zip
 rm -r ChemDoodleWeb-${VERSION}
