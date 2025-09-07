@@ -2,7 +2,7 @@
 FROM python:3.12-slim
 
 # Install necessary dependencies
-RUN apt-get update && apt-get install -y git libxrender-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git make libxrender-dev && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
 WORKDIR /app
