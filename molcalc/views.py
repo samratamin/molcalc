@@ -15,7 +15,7 @@ from flask import (
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from molcalc import constants, models, pipelines
+from molcalc import constants, models, orca, pipelines
 from molcalc.extensions import db
 from molcalc_lib import gamess_results
 from ppqm import chembridge
@@ -175,34 +175,8 @@ def ajax_smiles_to_sdf():
 @main_bp.route("/ajax/submitquantum", methods=["POST"])
 def ajax_submitquantum():
     """
-
-    Setup quantum calculation
-
+    Generate an Orca input file and return it to the user.
     """
-
-    settings = current_app.config
-
-    # Check if user is someone who is a know misuser
-    user_ip = request.remote_addr
-    if (
-        constants.COLUMN_BLOCK_IP in settings
-        and user_ip in settings[constants.COLUMN_BLOCK_IP]
-    ):
-        return jsonify(
-            {
-                "error": "Error 194 - blocked ip",
-                "message": "IP address has been blocked for missue",
-            }
-        )
-
-    if not request.form:
-        return jsonify(
-            {
-                "error": "Error 128 - empty post",
-                "message": "Error. Empty post.",
-            }
-        )
-
     if "sdf" not in request.form:
         return jsonify(
             {
@@ -211,107 +185,17 @@ def ajax_submitquantum():
             }
         )
 
-    # Get coordinates from request
-    sdfstr = request.form["sdf"].encode("utf-8")
+    sdf_str = request.form["sdf"]
 
-    # Is this 2D or 3D?
-    add_hydrogens = request.form.get("add_hydrogens", "1")
-    add_hydrogens = add_hydrogens == "1"
+    # Generate Orca input
+    orca_input = orca.generate_orca_input(sdf_str)
 
-    # Get rdkit
-    molobj = chembridge.sdfstr_to_molobj(sdfstr)
-
-    if molobj is None:
-        return jsonify({"error": "Error 141 - rdkit error", "message": "RDKit error"})
-
-    try:
-        molobj.GetConformer()
-    except ValueError:
-        # Error
+    if not orca_input:
         return jsonify(
             {
-                "error": "Error 141 - rdkit error",
-                "message": (
-                    "Error. Server was unable to generate "
-                    "conformations for this molecule"
-                ),
+                "error": "Error 200 - Orca input generation failed",
+                "message": "Error. Could not generate Orca input.",
             }
         )
 
-    # If hydrogens not added, assume graph and optimize with forcefield
-    atoms = chembridge.molobj_to_atoms(molobj)
-
-    if 1 not in atoms and add_hydrogens:
-        molobj = Chem.AddHs(molobj)
-        AllChem.EmbedMultipleConfs(molobj, numConfs=1)
-        chembridge.molobj_optimize(molobj)
-
-    atoms = chembridge.molobj_to_atoms(molobj)
-
-    # TODO Check lengths of atoms
-    # TODO Define max in settings
-    max_atoms = 10
-    (heavy_atoms,) = np.where(atoms != 1)
-    if len(heavy_atoms) > max_atoms:
-        return jsonify(
-            {
-                "error": "Error 194 - max atoms error",
-                "message": "Stop Casper. Max ten heavy atoms.",
-            }
-        )
-
-    # Fix sdfstr
-    sdfstr = sdfstr.decode("utf8")
-    for _ in range(3):
-        i = sdfstr.index("\n")
-        sdfstr = sdfstr[i + 1 :]
-    sdfstr = "\n" * 3 + sdfstr
-
-    # hash on sdf (conformer)
-    hshobj = hashlib.md5(sdfstr.encode())
-    hashkey = hshobj.hexdigest()
-
-    # Check if hash/calculation already exists in db
-    calculation = (
-        db.session.query(models.GamessCalculation)
-        .filter_by(hashkey=hashkey)
-        .first()
-    )
-
-    # If calculation already exists, return
-    if calculation is not None:
-        msg = {"hashkey": hashkey}
-        calculation.created = datetime.datetime.now()
-        db.session.commit()
-        _logger.info(f"{hashkey} exists")
-        return jsonify(msg)
-
-    # The calculation is valid and does not exists, pass to pipeline
-    _logger.info(f"{hashkey} create")
-
-    molecule_info = {"sdfstr": sdfstr, "molobj": molobj, "hashkey": hashkey}
-
-    try:
-        msg, new_calculation = pipelines.calculation_pipeline(
-            molecule_info, settings
-        )
-
-    except Exception:
-
-        sdfstr = chembridge.molobj_to_sdfstr(molobj)
-        _logger.error(f"{hashkey} PipelineError", exc_info=True)
-        _logger.error(sdfstr)
-
-        return jsonify(
-            {
-                "error": "293",
-                "message": "Internal server server. Uncaught exception",
-            }
-        )
-
-    # Add calculation to the database
-    if new_calculation is not None:
-        db.session.add(new_calculation)
-        db.session.commit()
-
-    return jsonify(msg)
+    return jsonify({"orca_input": orca_input})

@@ -241,15 +241,27 @@ $('.button.quantum').click(function () {
 
         request("/ajax/submitquantum", sdf_data, function (data)
         {
-            url = window.location.href;
-            url = url.split("#");
-            url = url[0]
-            url = url.replace('editor', '');
-            url = url + 'calculations/' + data["hashkey"];
-            window.location = url;
             promptCalculation.cancel();
+            if (data.orca_input) {
+                var blob = new Blob([data.orca_input], {type: "text/plain;charset=utf-8"});
+                var link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'molcalc.inp';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                var promptError = new $.Prompt();
+                promptError.setMessage(data.message || "An unknown error occurred.");
+                promptError.addCancelBtn("OK");
+                promptError.show();
+            }
         }, function() {
             promptCalculation.cancel();
+            var promptError = new $.Prompt();
+            promptError.setMessage("The request to the server failed.");
+            promptError.addCancelBtn("OK");
+            promptError.show();
         }, timeout=60000);
     });
     promptQuantum.addCancelBtn("Not yet");
