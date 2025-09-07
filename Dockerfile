@@ -11,9 +11,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the Makefile and run the ppqm target
+# Copy the Makefile and scripts, and run the setup targets
 COPY Makefile .
+COPY scripts/ scripts/
 RUN make ppqm
+RUN make setup_assets
 
 # Copy the rest of the application code
 COPY . .
