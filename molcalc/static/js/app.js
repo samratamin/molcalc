@@ -338,9 +338,9 @@ $(function()
 // RDKit ////////////////////////////////////////////////////////
 
 
-function smilesToSdf(smi)
+async function smilesToSdf(smi)
 {
-
+    await window.rdkitLoadingPromise;
     var mol = RDKit.Molecule.fromSmiles( smi );
 
     mol.addHs();
@@ -408,7 +408,7 @@ function jsmolGetSmiles(canvasObj)
 function jsmolSetMol(canvasObj, molStr)
 {
     // http://wiki.jmol.org/index.php/File_formats/Chemical_Structure
-
+    console.log("Setting molecule in JSmol");
     jsmolCmd(canvasObj, "load inline '"+molStr+"'");
     // jsmolCmd(canvasObj, "minimize addHydrogens");
 

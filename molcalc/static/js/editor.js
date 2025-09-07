@@ -429,17 +429,15 @@ $searchFrm.submit(function(event) {
         return false;
     }
 
-    requestCactus(search, 'smiles', function(data)
+    requestCactus(search, 'smiles', async function(data)
     {
-        var promptSearch = new $.Prompt();
-        promptSearch.setMessage("Converting " + data);
-        promptSearch.show();
+        // Wait for RDKit to be initialized
+        await window.rdkitLoadingPromise;
 
         // Convert to sdf
-        var sdfstr = smilesToSdf(data);
+        var sdfstr = await smilesToSdf(data);
         setCurrentSDF(sdfstr);
 
-        promptSearch.cancel();
         onWindowResize();
 
         // reset search on success
