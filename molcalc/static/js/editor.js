@@ -32,7 +32,7 @@ function setCurrentSDF(sdf)
     else
     {
         jsmolSetMol(myJmol1, sdf);
-        jsmolCmd(myJmol1, "minimize addHydrogens");
+        // jsmolCmd(myJmol1, "minimize addHydrogens"); // This command can cause JSmol to freeze on some molecules.
     }
     return false;
 }
