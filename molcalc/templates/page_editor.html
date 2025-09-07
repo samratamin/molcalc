@@ -9,7 +9,7 @@
     {% include 'chemtools_head.html' %}
     {% include 'jsmol_head.html' %}
 
-    <script type="text/javascript" src="{{ request.static_url('molcalc:static/rdkit/rdkit.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='rdkit/rdkit.js') }}"></script>
 
 <script type="text/javascript">
 
@@ -73,7 +73,7 @@ $$$$
 </script>
 
 
-    <script type="text/javascript" src="{{ request.static_url('molcalc:static/js/editor.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/editor.js') }}"></script>
 
 </head>
 <body>

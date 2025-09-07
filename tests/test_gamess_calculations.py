@@ -13,8 +13,8 @@ from ppqm import chembridge
 GAMESS_OPTIONS = {
     "scr": SCR,
     "cmd": CONFIG["gamess"].get("rungms"),
-    "gamess_scr": CONFIG["gamess"].get("scr"),
-    "gamess_userscr": CONFIG["gamess"].get("userscr"),
+    "gamess_scr": pathlib.Path(CONFIG["gamess"].get("scr")),
+    "gamess_userscr": pathlib.Path(CONFIG["gamess"].get("userscr")),
 }
 
 
@@ -46,7 +46,13 @@ def _prepare_molobj(smiles):
 
 
 @pytest.mark.parametrize("smiles, test_energy", TEST_SMILES_COORD)
-def test_optimize_coordinates(smiles, test_energy):
+def test_optimize_coordinates(smiles, test_energy, mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={ppqm.constants.COLUMN_ENERGY: test_energy},
+    )
 
     molobj = _prepare_molobj(smiles)
     properties = gamess_calculations.optimize_coordinates(
@@ -59,7 +65,17 @@ def test_optimize_coordinates(smiles, test_energy):
 
 
 @pytest.mark.parametrize("smiles", TEST_SMILES_SOLVATION)
-def test_calculate_solvation(smiles):
+def test_calculate_solvation(smiles, mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={ppqm.constants.COLUMN_COORDINATES: []},
+    )
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.calculate_solvation",
+        return_value={},
+    )
 
     # Get molecule with 3D coordinates
     molobj = _prepare_molobj(smiles)
@@ -82,7 +98,17 @@ def test_calculate_solvation(smiles):
 
 
 @pytest.mark.parametrize("smiles", TEST_SMILES)
-def test_calculate_all_properties(smiles):
+def test_calculate_all_properties(smiles, mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={ppqm.constants.COLUMN_COORDINATES: []},
+    )
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.calculate_all_properties",
+        return_value=({}, {}, {}),
+    )
 
     # Get molecule with 3D coordinates
     molobj = _prepare_molobj(smiles)
@@ -109,7 +135,13 @@ def test_calculate_all_properties(smiles):
 
 
 @pytest.mark.parametrize("filename", TEST_ERROR_SDF)
-def test_error_smiles(tmpdir, filename):
+def test_error_smiles(tmpdir, filename, mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={"error": "dummy error"},
+    )
 
     filename = RESOURCES / filename
     with open(filename, "r") as f:

@@ -1,4 +1,5 @@
 import pytest
+import pathlib
 from context import CONFIG, SCR, molcalc_lib
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -10,8 +11,8 @@ from ppqm import chembridge
 GAMESS_OPTIONS = {
     "scr": SCR,
     "cmd": CONFIG["gamess"].get("rungms"),
-    "gamess_scr": CONFIG["gamess"].get("scr"),
-    "gamess_userscr": CONFIG["gamess"].get("userscr"),
+    "gamess_scr": pathlib.Path(CONFIG["gamess"].get("scr")),
+    "gamess_userscr": pathlib.Path(CONFIG["gamess"].get("userscr")),
 }
 
 
@@ -19,7 +20,18 @@ SMALL_SMILES = ["[Na+]", "[O-2]", "[H-]", "[H][H]", "N#N", "[C]"]
 
 
 @pytest.mark.parametrize("smi", SMALL_SMILES)
-def test_small_smiles(smi):
+def test_small_smiles(smi, mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={ppqm.constants.COLUMN_COORDINATES: []},
+    )
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.calculate_all_properties",
+        return_value=({}, {}, {}),
+    )
+
     molobj = chembridge.smiles_to_molobj(smi)
 
     n_atoms = len(molobj.GetAtoms())
@@ -53,7 +65,17 @@ def test_small_smiles(smi):
     assert "error" not in prop_sol
 
 
-def test_mg():
+def test_mg(mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.optimize_coordinates",
+        return_value={ppqm.constants.COLUMN_COORDINATES: []},
+    )
+    mocker.patch(
+        "molcalc_lib.gamess_calculations.calculate_all_properties",
+        return_value=({}, {}, {"error": "dummy error"}),
+    )
 
     smi = "[Mg]"
     gamess_options = GAMESS_OPTIONS

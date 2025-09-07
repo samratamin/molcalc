@@ -10,28 +10,13 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
-    create_engine,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.schema import MetaData
 
-# Recommended naming convention used by Alembic, as various different database
-# providers will autogenerate vastly different names making migrations more
-# difficult. See: http://alembic.zzzcomputing.com/en/latest/naming.html
-NAMING_CONVENTION = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-
-metadata = MetaData(naming_convention=NAMING_CONVENTION)
-Base = declarative_base(metadata=metadata)
+from molcalc.extensions import db
 
 
 def compress(s):
-    if type(s) == str:
+    if isinstance(s, str):
         s = s.encode()
     b = gzip.compress(s)
     return b
@@ -63,12 +48,12 @@ class NumpyArray(sa.types.TypeDecorator):
 
     impl = LargeBinary
 
-    def save_array(arr):
+    def save_array(self, arr):
         s = io.StringIO()
         np.savetxt(s, arr)
         return s.getvalue()
 
-    def load_array(txt):
+    def load_array(self, txt):
         s = io.StringIO(txt)
         arr = np.loadtxt(s)
         return arr
@@ -83,18 +68,7 @@ class NumpyArray(sa.types.TypeDecorator):
         return value
 
 
-def db_connect():
-    """
-    Performs database connection using database settings from settings.py.
-    Returns sqlalchemy engine instance
-    """
-
-    connect_string = "sqlite:///database.sqlite"
-
-    return create_engine(connect_string)
-
-
-class GamessCalculation(Base):
+class GamessCalculation(db.Model):
     __tablename__ = "gamesscalculations"
     id = Column(Integer, primary_key=True)
 
@@ -133,7 +107,7 @@ class GamessCalculation(Base):
         return fmt.format(self.smiles, self.hashkey)
 
 
-class Counter(Base):
+class Counter(db.Model):
     __tablename__ = "molecules"
     smiles = Column(String, primary_key=True)
     count = Column(Integer)
@@ -141,13 +115,3 @@ class Counter(Base):
     def __repr__(self):
         fmt = "<Molecule {:} {:} >"
         return fmt.format(self.smiles, self.count)
-
-
-def initialize_db(engine):
-    Base.metadata.create_all(engine)
-    return
-
-
-if __name__ == "__main__":
-    engine = db_connect()
-    initialize_db(engine)

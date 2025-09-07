@@ -3,78 +3,71 @@ import hashlib
 import logging
 import re
 
-import models
 import numpy as np
-import pipelines
-from pyramid import httpexceptions
-from pyramid.view import notfound_view_config, view_config
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    jsonify,
+    render_template,
+    request,
+)
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from molcalc import constants
+from molcalc import constants, models, pipelines
+from molcalc.extensions import db
 from molcalc_lib import gamess_results
 from ppqm import chembridge
 
 _logger = logging.getLogger("molcalc:views")
 
-# Error Views
+main_bp = Blueprint("main", __name__)
 
 
-@notfound_view_config(renderer="templates/page_404.html")
-def not_found(request):
-    request.response.status = 404
-    return {}
+@main_bp.app_errorhandler(404)
+def not_found(error):
+    return render_template("page_404.html"), 404
 
 
-# Calculation Views
-
-
-@view_config(route_name="editor", renderer="templates/page_editor.html")
-def editor(request):
+@main_bp.route("/")
+def editor():
     """
 
     Standard view for MolCalc. Static HTML.
 
     """
-    return {}
+    return render_template("page_editor.html")
 
 
-@view_config(
-    route_name="calculation", renderer="templates/page_calculation.html"
-)
-def view_calculation(request):
+@main_bp.route("/calculations/<hashkey>")
+def view_calculation(hashkey):
     """
 
     View for looking up calculations.
 
     """
 
-    # Get the key
-    matches = request.matchdict
-    hashkey = matches["one"]
-
     # Look up the key
     calculation = (
-        request.dbsession.query(models.GamessCalculation)
+        db.session.query(models.GamessCalculation)
         .filter_by(hashkey=hashkey)
         .first()
     )
 
     if calculation is None:
-        raise httpexceptions.exception_response(404)
+        abort(404)
 
     if hashkey == "404":
-        raise httpexceptions.exception_response(404)
+        abort(404)
 
     data = gamess_results.view_gamess_calculation(calculation)
 
-    return data
+    return render_template("page_calculation.html", **data)
 
 
-@view_config(
-    route_name="calculations", renderer="templates/page_calculation.html"
-)
-def view_calculations(request):
+@main_bp.route("/calculations")
+def view_calculations():
     """
 
     Statistic about current calculations? Iono, maybe not.
@@ -82,55 +75,55 @@ def view_calculations(request):
 
 
     """
-    raise httpexceptions.exception_response(404)
+    abort(404)
     return {}
 
 
-# Static page view
-
-
-@view_config(route_name="about", renderer="templates/page_about.html")
-def about(request):
+@main_bp.route("/about")
+def about():
     """
 
     static about page
 
     """
-    return {}
+    return render_template("page_about.html")
 
 
-@view_config(route_name="help", renderer="templates/page_help.html")
-def page_help(request):
+@main_bp.route("/help")
+def page_help():
     """
 
     static help page
 
     """
-    return {}
+    return render_template("page_help.html")
 
 
-@view_config(route_name="sdf_to_smiles", renderer="json")
-def ajax_sdf_to_smiles(request):
+@main_bp.route("/ajax/sdf", methods=["POST"])
+def ajax_sdf_to_smiles():
     """
 
     sdf to smiles convertion
 
     """
-    return {"message", "disabled"}
 
-    if not request.POST:
-        return {
-            "error": "Error 55 - Missing key",
-            "message": "Error. Missing information.",
-        }
+    if not request.form:
+        return jsonify(
+            {
+                "error": "Error 55 - Missing key",
+                "message": "Error. Missing information.",
+            }
+        )
 
     try:
-        sdf = request.POST["sdf"].encode("utf-8")
+        sdf = request.form["sdf"].encode("utf-8")
     except Exception:
-        return {
-            "error": "Error 60 - get error",
-            "message": "Error. Missing information.",
-        }
+        return jsonify(
+            {
+                "error": "Error 60 - get error",
+                "message": "Error. Missing information.",
+            }
+        )
 
     # Get smiles
     smiles, status = chembridge.sdf_to_smiles(sdf)
@@ -139,56 +132,55 @@ def ajax_sdf_to_smiles(request):
         status = status.split("]")
         status = status[-1]
 
-        return {"error": "Error 69 - rdkit error", "message": status}
+        return jsonify({"error": "Error 69 - rdkit error", "message": status})
 
     msg = {"smiles": smiles}
 
-    return msg
+    return jsonify(msg)
 
 
-# Ajax views
-
-
-@view_config(route_name="smiles_to_sdf", renderer="json")
-def ajax_smiles_to_sdf(request):
+@main_bp.route("/ajax/smiles", methods=["POST"])
+def ajax_smiles_to_sdf():
     """
 
     convert SMILES to SDF format
 
     """
 
-    return {"message", "disabled"}
-
-    if not request.POST:
-        return {
-            "error": "Error 53 - Missing key",
-            "message": "Error. Missing information.",
-        }
+    if not request.form:
+        return jsonify(
+            {
+                "error": "Error 53 - Missing key",
+                "message": "Error. Missing information.",
+            }
+        )
 
     try:
-        smiles = request.POST["smiles"].encode("utf-8")
+        smiles = request.form["smiles"].encode("utf-8")
     except Exception as e:
-        return {
-            "error": "Error 58 - get error",
-            "message": "Error. Missing information.",
-            "exception": f"{e}",
-        }
+        return jsonify(
+            {
+                "error": "Error 58 - get error",
+                "message": "Error. Missing information.",
+                "exception": f"{e}",
+            }
+        )
 
     sdfstr = chembridge.smiles_to_sdfstr(smiles)
     msg = {"sdf": sdfstr}
 
-    return msg
+    return jsonify(msg)
 
 
-@view_config(route_name="submitquantum", renderer="json")
-def ajax_submitquantum(request):
+@main_bp.route("/ajax/submitquantum", methods=["POST"])
+def ajax_submitquantum():
     """
 
     Setup quantum calculation
 
     """
 
-    settings = request.registry.settings
+    settings = current_app.config
 
     # Check if user is someone who is a know misuser
     user_ip = request.remote_addr
@@ -196,50 +188,55 @@ def ajax_submitquantum(request):
         constants.COLUMN_BLOCK_IP in settings
         and user_ip in settings[constants.COLUMN_BLOCK_IP]
     ):
-        return {
-            "error": "Error 194 - blocked ip",
-            "message": "IP address has been blocked for missue",
-        }
+        return jsonify(
+            {
+                "error": "Error 194 - blocked ip",
+                "message": "IP address has been blocked for missue",
+            }
+        )
 
-    if not request.POST:
-        return {
-            "error": "Error 128 - empty post",
-            "message": "Error. Empty post.",
-        }
+    if not request.form:
+        return jsonify(
+            {
+                "error": "Error 128 - empty post",
+                "message": "Error. Empty post.",
+            }
+        )
 
-    if not request.POST["sdf"]:
-        return {
-            "error": "Error 132 - sdf key error",
-            "message": "Error. Missing information.",
-        }
+    if "sdf" not in request.form:
+        return jsonify(
+            {
+                "error": "Error 132 - sdf key error",
+                "message": "Error. Missing information.",
+            }
+        )
 
     # Get coordinates from request
-    sdfstr = request.POST["sdf"].encode("utf-8")
+    sdfstr = request.form["sdf"].encode("utf-8")
 
     # Is this 2D or 3D?
-    add_hydrogens = request.POST.get("add_hydrogens", "1")
+    add_hydrogens = request.form.get("add_hydrogens", "1")
     add_hydrogens = add_hydrogens == "1"
 
     # Get rdkit
-    molobj, status = chembridge.sdfstr_to_molobj(sdfstr, return_status=True)
+    molobj = chembridge.sdfstr_to_molobj(sdfstr)
 
     if molobj is None:
-        status = status.split("]")
-        status = status[-1]
-        status = re.sub(r"\# [0-9]+", "", status)
-        return {"error": "Error 141 - rdkit error", "message": status}
+        return jsonify({"error": "Error 141 - rdkit error", "message": "RDKit error"})
 
     try:
         molobj.GetConformer()
     except ValueError:
         # Error
-        return {
-            "error": "Error 141 - rdkit error",
-            "message": (
-                "Error. Server was unable to generate "
-                "conformations for this molecule"
-            ),
-        }
+        return jsonify(
+            {
+                "error": "Error 141 - rdkit error",
+                "message": (
+                    "Error. Server was unable to generate "
+                    "conformations for this molecule"
+                ),
+            }
+        )
 
     # If hydrogens not added, assume graph and optimize with forcefield
     atoms = chembridge.molobj_to_atoms(molobj)
@@ -256,10 +253,12 @@ def ajax_submitquantum(request):
     max_atoms = 10
     (heavy_atoms,) = np.where(atoms != 1)
     if len(heavy_atoms) > max_atoms:
-        return {
-            "error": "Error 194 - max atoms error",
-            "message": "Stop Casper. Max ten heavy atoms.",
-        }
+        return jsonify(
+            {
+                "error": "Error 194 - max atoms error",
+                "message": "Stop Casper. Max ten heavy atoms.",
+            }
+        )
 
     # Fix sdfstr
     sdfstr = sdfstr.decode("utf8")
@@ -274,7 +273,7 @@ def ajax_submitquantum(request):
 
     # Check if hash/calculation already exists in db
     calculation = (
-        request.dbsession.query(models.GamessCalculation)
+        db.session.query(models.GamessCalculation)
         .filter_by(hashkey=hashkey)
         .first()
     )
@@ -283,8 +282,9 @@ def ajax_submitquantum(request):
     if calculation is not None:
         msg = {"hashkey": hashkey}
         calculation.created = datetime.datetime.now()
+        db.session.commit()
         _logger.info(f"{hashkey} exists")
-        return msg
+        return jsonify(msg)
 
     # The calculation is valid and does not exists, pass to pipeline
     _logger.info(f"{hashkey} create")
@@ -302,13 +302,16 @@ def ajax_submitquantum(request):
         _logger.error(f"{hashkey} PipelineError", exc_info=True)
         _logger.error(sdfstr)
 
-        return {
-            "error": "293",
-            "message": "Internal server server. Uncaught exception",
-        }
+        return jsonify(
+            {
+                "error": "293",
+                "message": "Internal server server. Uncaught exception",
+            }
+        )
 
     # Add calculation to the database
     if new_calculation is not None:
-        request.dbsession.add(new_calculation)
+        db.session.add(new_calculation)
+        db.session.commit()
 
-    return msg
+    return jsonify(msg)

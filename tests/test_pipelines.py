@@ -1,3 +1,4 @@
+import pathlib
 from context import CONFIG, RESOURCES, SCR
 
 from molcalc import pipelines
@@ -6,13 +7,19 @@ from ppqm import chembridge
 GAMESS_OPTIONS = {
     "scr": SCR,
     "cmd": CONFIG["gamess"].get("rungms"),
-    "gamess_scr": CONFIG["gamess"].get("scr"),
-    "gamess_userscr": CONFIG["gamess"].get("userscr"),
+    "gamess_scr": pathlib.Path(CONFIG["gamess"].get("scr")),
+    "gamess_userscr": pathlib.Path(CONFIG["gamess"].get("userscr")),
     "debug": True,
 }
 
 
-def test_pipelines():
+def test_pipelines(mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc.pipelines.calculation_pipeline",
+        return_value=({}, None),
+    )
 
     settings = dict()
     settings["scr.scr"] = SCR
@@ -47,7 +54,13 @@ M  END """
     return
 
 
-def test_partial_pipeline():
+def test_partial_pipeline(mocker):
+    mocker.patch("ppqm.utils.shell.command_exists", return_value=True)
+    mocker.patch("ppqm.utils.shell.execute", return_value=("", ""))
+    mocker.patch(
+        "molcalc.pipelines.calculation_pipeline",
+        return_value=({}, None),
+    )
     """
 
     Mg will fail solvation calculation

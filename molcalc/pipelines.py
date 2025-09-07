@@ -2,11 +2,12 @@ import datetime
 import logging
 import pathlib
 
-import models
+from molcalc import models
 
 import ppqm
 from molcalc_lib import gamess_calculations
-from ppqm import chembridge, misc
+from ppqm import chembridge
+from ppqm.utils import files as misc
 from ppqm.constants import COLUMN_COORDINATES
 
 _logger = logging.getLogger("molcalc:pipe")
