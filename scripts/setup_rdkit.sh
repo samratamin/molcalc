@@ -1,9 +1,10 @@
 #!/bin/bash
 
-cd molcalc/static/
+set -e
 
-mkdir -p rdkit
-cd rdkit
+URL="https://cdn.jsdelivr.net/npm/rdkit@0.5.1/dist/rdkit.js"
+DIR="molcalc/static/rdkit"
 
-wget https://github.com/iwatobipen/rdkit_javascript/raw/master/static/rdkit.js -O rdkit.js
-
+mkdir -p ${DIR}
+cd ${DIR}
+wget -c ${URL} -O rdkit.js
