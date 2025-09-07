@@ -1,16 +1,16 @@
 #!/bin/bash
 
-cd molcalc/static/
+set -e
 
-wget https://web.chemdoodle.com/downloads/ChemDoodleWeb-8.0.0.zip
+VERSION="11.0.0"
+URL="https://web.chemdoodle.com/downloads/ChemDoodleWeb-${VERSION}.zip"
+DIR="molcalc/static/chemdoodleweb"
 
-unzip ChemDoodleWeb-8.0.0.zip
-
-mkdir chemdoodleweb
-
-cp -r ChemDoodleWeb-8.0.0/install/* chemdoodleweb/
-cp -r ChemDoodleWeb-8.0.0/src/* chemdoodleweb/
-
-rm -r ChemDoodleWeb-8.0.0*
-
-
+mkdir -p ${DIR}
+cd ${DIR}
+wget -c ${URL}
+unzip ChemDoodleWeb-*.zip
+cp -r ChemDoodleWeb-${VERSION}/install/* .
+cp -r ChemDoodleWeb-${VERSION}/src/* .
+rm ChemDoodleWeb-*.zip
+rm -r ChemDoodleWeb-${VERSION}
