@@ -272,7 +272,7 @@ $('.button.quantum').click(function () {
 
 
 // Get name
-$('.button.getName').click(function () {
+$('.button.getName').click(async function () {
 
     // Setup loading
     var $loading = $('<div class="meter"><span style="width: 100%"></span></div>');
@@ -281,26 +281,32 @@ $('.button.getName').click(function () {
     promptWait.setType("transparent");
     promptWait.show();
 
-    // prepare smiles
-    var mol = getCurrentSDF();
-    var search = sdfToSmiles(mol);
+    try {
+        // prepare smiles
+        var mol = getCurrentSDF();
+        var search = await sdfToSmiles(mol);
 
-    requestCactus(search, 'iupac_name', function(data)
-    {
-        name = data;
-        name = name.toLowerCase();
+        requestCactus(search, 'iupac_name', function(data)
+        {
+            name = data;
+            name = name.toLowerCase();
 
-        var promptCactus = new $.Prompt();
-        promptCactus.setMessage(name);
-        promptCactus.addCancelBtn("Thanks");
-        promptCactus.show();
+            var promptCactus = new $.Prompt();
+            promptCactus.setMessage(name);
+            promptCactus.addCancelBtn("Thanks");
+            promptCactus.show();
 
+            promptWait.cancel();
+
+        }, function(status)
+        {
+            promptWait.cancel();
+        });
+
+    } catch (error) {
+        console.error('Error converting molecule to SMILES:', error);
         promptWait.cancel();
-
-    }, function(status)
-    {
-        promptWait.cancel();
-    });
+    }
 
     // var promptWait = new $.Prompt();
     // promptWait.setMessage($loading);
@@ -431,20 +437,27 @@ $searchFrm.submit(function(event) {
 
     requestCactus(search, 'smiles', async function(data)
     {
-        // Wait for RDKit to be initialized
-        await window.rdkitLoadingPromise;
+        try {
+            // Wait for RDKit to be initialized
+            await window.rdkitLoadingPromise;
 
-        // Convert to sdf
-        var sdfstr = await smilesToSdf(data);
-        setCurrentSDF(sdfstr);
+            // Convert to sdf
+            var sdfstr = await smilesToSdf(data);
+            setCurrentSDF(sdfstr);
 
-        promptWait.cancel();
-        onWindowResize();
+            promptWait.cancel();
+            onWindowResize();
 
-        // reset search on success
-        $searchInp.focus();
-        // $searchInp.val(""); // Casper didn't like this behavior
-        changeInputStatus($searchInp, 'success');
+            // reset search on success
+            $searchInp.focus();
+            // $searchInp.val(""); // Casper didn't like this behavior
+            changeInputStatus($searchInp, 'success');
+
+        } catch (error) {
+            console.error('Error during molecule conversion:', error);
+            changeInputStatus($searchInp, 'failed');
+            promptWait.cancel();
+        }
 
     }, function(status)
     {
